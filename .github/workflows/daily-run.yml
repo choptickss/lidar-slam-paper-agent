@@ -43,6 +43,6 @@ jobs:
         run: |
           git config --global user.name "choptickss"
           git config --global user.email "2389817852@qq.com"
-          git add pushed_papers.json
+          git add pushed_papers.json pushed_cn_articles.json
           git commit -m "更新已推送论文记录" || echo "无新记录无需提交"
           git push
