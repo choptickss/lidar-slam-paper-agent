@@ -55,11 +55,11 @@ CODE_KEYWORDS = [
 # ========== 中文RSS源配置 ==========
 # 新增：国内优质技术文章RSS源
 CN_RSS_SOURCES = [
-    {"name": "机器之心", "url": "https://www.jiqizhixin.com/rss"},
     {"name": "量子位", "url": "https://www.qbitai.com/feed"},
     {"name": "新智元", "url": "https://www.aiera.com/feed"},
-    {"name": "36氪-科技", "url": "https://36kr.com/feed/tech"},
-    {"name": "知乎-机器人话题", "url": "https://www.zhihu.com/rss/topic/19551480"},
+    {"name": "InfoQ-人工智能", "url": "https://www.infoq.cn/topic/ai/rss"},
+    {"name": "CSDN-机器人频道", "url": "https://rss.csdn.net/rss_channel/robot.xml"},
+    {"name": "开源中国-AI频道", "url": "https://www.oschina.net/news/rss?catalog=2"},
 ]
 MAX_CN_ARTICLES = 5  # 每日最多推送中文文章数
 
@@ -176,6 +176,23 @@ def fetch_cn_rss_articles():
             print(f"  ❌ {source['name']} 抓取异常: {str(e)}")
     return all_articles
 
+
+def rule_score_cn_article(title, abstract):
+    """中文文章规则打分，标题命中权重翻倍"""
+    title_lower = title.lower()
+    text_lower = (title + " " + abstract).lower()
+    score = 0
+    
+    for kw, weight in DOMAIN_KEYWORDS.items():
+        kw_lower = kw.lower()
+        # 标题命中：权重翻倍
+        if kw_lower in title_lower:
+            score += weight * 2
+        # 仅摘要命中：正常权重
+        elif kw_lower in text_lower:
+            score += weight
+    
+    return score, score >= 12  # 门槛同步提高，过滤弱相关文章
 # ===================== 规则初筛 =====================
 def rule_based_score(title, abstract):
     text = (title + " " + abstract).lower()
@@ -419,11 +436,14 @@ if __name__ == "__main__":
 
     scored_cn = []
     for a in candidate_cn:
-        llm_score = llm_quality_score(a["title"], a["abstract"], is_cn=True)
-        final_score = int(a["base_score"] * 0.5 + llm_score * 0.5)
-        a["final_score"] = min(final_score, 100)
-        if a["final_score"] >= MIN_CN_SCORE:
-            scored_cn.append(a)
+        try:
+            llm_score = llm_quality_score(a["title"], a["abstract"], is_cn=True)
+            final_score = int(a["base_score"] * 0.5 + llm_score * 0.5)
+            a["final_score"] = min(final_score, 100)
+            if a["final_score"] >= MIN_CN_SCORE:
+                scored_cn.append(a)
+        except Exception as e:
+            print(f"单篇中文文章处理异常，跳过: {e}")
         time.sleep(0.8)
 
     scored_cn.sort(key=lambda x: x["final_score"], reverse=True)
