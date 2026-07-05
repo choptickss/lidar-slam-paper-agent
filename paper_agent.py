@@ -157,13 +157,21 @@ def fetch_cn_rss_articles():
     return all_articles
 
 def rule_score_cn_article(title, abstract):
-    """中文文章规则打分"""
-    text = (title + " " + abstract).lower()
+    """中文文章规则打分，标题命中权重翻倍"""
+    title_lower = title.lower()
+    text_lower = (title + " " + abstract).lower()
     score = 0
+    
     for kw, weight in DOMAIN_KEYWORDS.items():
-        if kw.lower() in text:
+        kw_lower = kw.lower()
+        # 标题命中：权重翻倍
+        if kw_lower in title_lower:
             score += weight * 2
-    return score, score >= 8
+        # 仅摘要命中：正常权重
+        elif kw_lower in text_lower:
+            score += weight
+    
+    return score, score >= 12  # 门槛同步提高，过滤弱相关文章
 
 # ===================== 规则初筛 =====================
 def rule_based_score(title, abstract):
