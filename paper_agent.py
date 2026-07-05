@@ -15,36 +15,39 @@ from email.utils import formataddr
 from datetime import datetime
 
 # ========== 可配置参数区 ==========
-# 核心领域关键词（权重越高，命中后相关性加分越多）
+# 分层关键词：核心强相关 / 泛垂直 / 泛领域，适配论文+中文文章双场景
 DOMAIN_KEYWORDS = {
-    # ========== 核心高权重（命中即强相关）==========
+    # ========== 核心强相关（高权重，命中即强匹配）==========
     # 英文核心
     "lidar": 4, "point cloud": 4, "slam": 4, "lio": 4, "loam": 4,
     "point cloud registration": 5, "loop closure": 5, "imu fusion": 4,
-    "odometry": 4,
+    "odometry": 4, "gaussian splatting slam": 5, "nerf slam": 5,
     # 中文核心
-    "激光雷达": 4, "点云": 4, "建图": 3, "激光SLAM": 5, "点云配准": 5,
+    "激光雷达": 4, "点云": 4, "激光SLAM": 5, "点云配准": 5,
     "回环检测": 5, "惯导融合": 4, "里程计": 4, "点云分割": 4,
+    "固态激光雷达": 4, "多线雷达": 4,
 
-    # ========== 次高权重（细分方向）==========
-    # 英文细分
-    "livox": 3, "gaussian splatting slam": 5, "nerf slam": 5,
-    "semantic segmentation": 3, "localization": 3, "feature extraction": 3,
-    "voxel": 3, "autonomous driving": 2,
-    # 中文细分
-    "固态激光雷达": 4, "览沃": 3, "体素": 3, "特征提取": 3,
-    "自动驾驶感知": 3, "机器人定位": 3, "3D点云": 4,
-    "多传感器融合": 3, "紧耦合": 4, "松耦合": 3,
+    # ========== 泛垂直相关（中权重，技术方向沾边）==========
+    # 英文
+    "livox": 3, "semantic segmentation": 3, "localization": 3,
+    "feature extraction": 3, "voxel": 3,
+    # 中文
+    "览沃": 3, "体素": 3, "特征提取": 3,
+    "自动驾驶感知": 3, "机器人定位": 3, "3D点云": 3,
+    "多传感器融合": 3, "紧耦合": 3, "3D视觉": 3,
+    "机器人导航": 3,
 
-    # ========== 低权重（泛领域，仅作补充）==========
-    "autonomous driving": 2, "机器人": 2, "自动驾驶": 2, "3D视觉": 2
+    # ========== 泛领域补充（低权重，仅作辅助）==========
+    "autonomous driving": 2, "机器人": 2, "自动驾驶": 2, "人工智能": 1
 }
+
 # 优质机构/顶会关键词（命中额外加分）
 BONUS_KEYWORDS = [
     "ICRA", "IROS", "CVPR", "ECCV", "3DV", "RSS", "TRO",
     "CMU", "MIT", "Stanford", "Oxford", "HKUST", "Tsinghua",
     "Waymo", "Tesla", "Huawei", "Baidu", "DJI", "RoboSense", "Hesai"
 ]
+
 # 代码开源识别关键词
 CODE_KEYWORDS = [
     "github.com", "code is available", "open source", "open-source",
@@ -52,20 +55,22 @@ CODE_KEYWORDS = [
     "our code", "code repository", "code will be released", "开源"
 ]
 
-# ========== 中文RSS源配置 ==========
-# 新增：国内优质技术文章RSS源
+# ========== 中文RSS源配置（垂直号+综合源，海外节点可稳定访问）==========
 CN_RSS_SOURCES = [
+    # 垂直技术公众号（RSSHub公共实例转码，匹配度最高）
+    {"name": "自动驾驶之心", "url": "https://rsshub.app/wechat/mp/auto-drive-heart"},
+    {"name": "点云PCL", "url": "https://rsshub.app/wechat/mp/PointCloud"},
+    {"name": "泡泡机器人SLAM", "url": "https://rsshub.app/wechat/mp/paopaorobot"},
+    # 综合科技媒体（补充行业广度）
     {"name": "量子位", "url": "https://www.qbitai.com/feed"},
     {"name": "新智元", "url": "https://www.aiera.com/feed"},
-    {"name": "InfoQ-人工智能", "url": "https://www.infoq.cn/topic/ai/rss"},
-    {"name": "CSDN-机器人频道", "url": "https://rss.csdn.net/rss_channel/robot.xml"},
-    {"name": "开源中国-AI频道", "url": "https://www.oschina.net/news/rss?catalog=2"},
+    {"name": "开源中国-AI", "url": "https://www.oschina.net/news/rss?catalog=2"},
 ]
 MAX_CN_ARTICLES = 5  # 每日最多推送中文文章数
 
 # ========== 筛选评分配置 ==========
 MIN_SCORE = 60                  # 论文及格分数线
-MIN_CN_SCORE = 50               # 中文文章及格分数线
+MIN_CN_SCORE = 45               # 中文文章及格分数线（适配泛源场景下调）
 MAX_PAPERS = 8                  # 每日最多推送论文数量
 OPEN_SOURCE_BONUS = 5           # 开源论文额外加分
 ONLY_PUSH_OPENSOURCE = False    # 只推送开源论文开关
@@ -76,7 +81,7 @@ ARXIV_CATEGORIES = ["cs.RO", "cs.CV", "cs.AI"]
 RECORD_FILE = "pushed_papers.json"
 CN_RECORD_FILE = "pushed_cn_articles.json"
 
-# ========== 环境变量 ==========
+# ========== 环境变量（密钥从GitHub Secrets读取）==========
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
 FEISHU_WEBHOOK = os.getenv("FEISHU_WEBHOOK", "")
 DINGTALK_WEBHOOK = os.getenv("DINGTALK_WEBHOOK", "")
@@ -89,17 +94,20 @@ SMTP_PORT = 465
 
 # ===================== 基础工具函数 =====================
 def load_json_set(filename):
+    """加载JSON格式的去重记录"""
     if os.path.exists(filename):
         with open(filename, "r", encoding="utf-8") as f:
             return set(json.load(f))
     return set()
 
 def save_json_set(filename, data_set):
+    """保存JSON格式的去重记录"""
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(list(data_set), f, ensure_ascii=False, indent=2)
 
-# ===================== 论文抓取（原有arXiv） =====================
+# ===================== 论文抓取（arXiv官方API） =====================
 def fetch_arxiv_papers():
+    """调用arXiv官方API抓取最新论文"""
     base_url = "http://export.arxiv.org/api/query"
     query_str = " OR ".join([f"all:{kw}" for kw in list(DOMAIN_KEYWORDS.keys())[:10]])
     cat_str = " OR ".join([f"cat:{cat}" for cat in ARXIV_CATEGORIES])
@@ -129,7 +137,7 @@ def fetch_arxiv_papers():
         })
     return papers
 
-# ===================== 新增：中文RSS文章抓取 =====================
+# ===================== 中文RSS文章抓取 =====================
 def fetch_cn_rss_articles():
     """抓取所有中文RSS源，增加反爬头、状态校验、错误详情打印"""
     all_articles = []
@@ -157,7 +165,7 @@ def fetch_cn_rss_articles():
             for entry in feed.entries[:15]:  # 每个源取最新15篇
                 article_id = entry.link.strip()
                 title = entry.title.strip()
-                # 提取摘要，去除HTML标签
+                # 提取摘要，去除HTML标签和多余空白
                 summary = entry.get("summary", entry.get("description", "")).strip()
                 summary = re.sub(r"<[^>]+>", "", summary)
                 summary = re.sub(r"\s+", " ", summary)
@@ -176,39 +184,51 @@ def fetch_cn_rss_articles():
             print(f"  ❌ {source['name']} 抓取异常: {str(e)}")
     return all_articles
 
+# ===================== 规则打分筛选 =====================
+def rule_based_score(title, abstract):
+    """英文论文规则初筛打分"""
+    text = (title + " " + abstract).lower()
+    base_score = 0
+    
+    for kw, weight in DOMAIN_KEYWORDS.items():
+        if kw.lower() in text:
+            base_score += weight * 2
+    
+    for kw in BONUS_KEYWORDS:
+        if kw.lower() in text:
+            base_score += 5
+    
+    # 纯综述无创新工作减分
+    if re.search(r"review|survey|overview", text) and "we propose" not in text:
+        base_score -= 20
+    
+    return base_score, base_score >= 10
 
 def rule_score_cn_article(title, abstract):
-    """中文文章规则打分，标题命中权重翻倍"""
+    """中文文章规则打分，标题命中权重翻倍，带调试日志，宽进严出"""
     title_lower = title.lower()
     text_lower = (title + " " + abstract).lower()
     score = 0
     
     for kw, weight in DOMAIN_KEYWORDS.items():
         kw_lower = kw.lower()
-        # 标题命中：权重翻倍
+        # 标题命中权重翻倍
         if kw_lower in title_lower:
             score += weight * 2
-        # 仅摘要命中：正常权重
+        # 仅摘要命中正常计分
         elif kw_lower in text_lower:
             score += weight
     
-    return score, score >= 8
-# ===================== 规则初筛 =====================
-def rule_based_score(title, abstract):
-    text = (title + " " + abstract).lower()
-    base_score = 0
-    for kw, weight in DOMAIN_KEYWORDS.items():
-        if kw.lower() in text:
-            base_score += weight * 2
-    for kw in BONUS_KEYWORDS:
-        if kw.lower() in text:
-            base_score += 5
-    if re.search(r"review|survey|overview", text) and "we propose" not in text:
-        base_score -= 20
-    return base_score, base_score >= 10
+    # 调试日志：打印得分≥3分的文章，方便调参
+    if score >= 3:
+        print(f"  [规则得分{score}] {title[:45]}...")
+    
+    # 初筛门槛降至5分，宽进严出，后续大模型二次筛选
+    return score, score >= 5
 
 # ===================== 开源代码识别 =====================
 def check_opensource_local(title, abstract):
+    """本地关键词快筛，提取摘要中的开源信息"""
     text = (title + " " + abstract).lower()
     for kw in CODE_KEYWORDS:
         if kw.lower() in text:
@@ -219,6 +239,7 @@ def check_opensource_local(title, abstract):
     return False, None
 
 def check_opensource_pwc(arxiv_id):
+    """调用Papers with Code官方API，增加防拦截与异常校验"""
     if not ENABLE_PAPERS_WITH_CODE:
         return False, None
     try:
@@ -229,12 +250,17 @@ def check_opensource_pwc(arxiv_id):
             "Accept": "application/json"
         }
         resp = requests.get(url, headers=headers, timeout=10)
+        
+        # 前置校验状态码，非200直接返回
         if resp.status_code != 200:
             return False, None
+        
+        # 安全解析JSON，失败不中断主流程
         try:
             data = resp.json()
         except ValueError:
             return False, None
+            
         if data.get("count", 0) > 0:
             paper = data["results"][0]
             repos = paper.get("repositories", [])
@@ -243,12 +269,14 @@ def check_opensource_pwc(arxiv_id):
                 target = official[0] if official else repos[0]
                 return True, target.get("url", "")
         return False, None
-    except Exception as e:
+    except Exception:
         return False, None
 
 def get_opensource_info(title, abstract, arxiv_id):
+    """整合双层识别，返回最终开源状态"""
     local_open, local_url = check_opensource_local(title, abstract)
     pwc_open, pwc_url = check_opensource_pwc(arxiv_id)
+    
     if pwc_open:
         return True, "✅ 已开源", pwc_url
     elif local_open:
@@ -258,51 +286,83 @@ def get_opensource_info(title, abstract, arxiv_id):
 
 # ===================== 大模型能力 =====================
 def llm_quality_score(title, abstract, is_cn=False):
+    """大模型质量打分，支持论文/中文文章两种模式"""
     if not ZHIPU_API_KEY:
         return 70
+    
     if is_cn:
-        prompt = f"""请对这篇中文技术文章进行质量评分，0-100分。维度：领域相关性40分、技术深度30分、信息价值30分。
+        prompt = f"""请对这篇中文技术文章进行质量评分，总分0-100分。
+评分维度：
+1. 领域相关性（40分）：与激光SLAM、点云处理、自动驾驶感知、机器人技术的贴合度
+2. 技术深度（30分）：是否有具体技术细节、算法讲解，而非泛泛资讯
+3. 信息价值（30分）：对从业者的参考价值
+
 标题：{title}
 摘要：{abstract}
-只输出一个整数分数，不要解释。"""
+
+输出要求：只输出一个整数分数，不要任何解释和多余文字。"""
     else:
-        prompt = f"""你是SLAM与激光雷达领域专家，对论文进行0-100分综合评分。
-维度：相关性30、创新性30、实验完整性25、工程价值15。
-标题：{title}
-摘要：{abstract}
-只输出一个整数分数，不要解释。"""
+        prompt = f"""你是SLAM与激光雷达领域资深算法专家，对论文进行0-100分综合评分。
+评分维度：
+1. 领域相关性（30分）：与激光SLAM、点云处理、机器人感知的贴合度
+2. 技术创新性（30分）：是否提出新算法/新框架，而非简单堆叠改进
+3. 实验完整性（25分）：是否有公开数据集、对比实验、消融实验
+4. 工程价值（15分）：是否具备落地可行性、工业参考价值
+
+论文标题：{title}
+论文摘要：{abstract}
+
+输出要求：只输出一个整数分数，不要任何解释和多余文字。"""
     
     headers = {"Authorization": f"Bearer {ZHIPU_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "glm-4-flash", "messages": [{"role": "user", "content": prompt}], "temperature": 0.1}
+    payload = {
+        "model": "glm-4-flash",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1
+    }
     try:
         res = requests.post("https://open.bigmodel.cn/api/paas/v4/chat/completions",
                             json=payload, headers=headers, timeout=30)
-        score = int(re.findall(r"\d+", res.json()["choices"][0]["message"]["content"])[0])
+        score_text = res.json()["choices"][0]["message"]["content"].strip()
+        score = int(re.findall(r"\d+", score_text)[0])
         return min(max(score, 0), 100)
-    except:
+    except Exception:
         return 60
 
 def llm_structured_summary(title, abstract, is_cn=False):
+    """生成结构化中文技术概述"""
     if not ZHIPU_API_KEY:
         return abstract[:300] + "..."
+    
     if is_cn:
         prompt = f"""用3句话总结这篇文章的核心内容，突出技术亮点和行业价值，简洁专业：
 标题：{title}
-摘要：{abstract}"""
-    else:
-        prompt = f"""你是激光SLAM专家，用中文结构化总结论文，按5点输出：
-1.核心痛点 2.技术方案 3.关键创新 4.实验表现 5.适用方向
-标题：{title}
 摘要：{abstract}
-纯文本输出，不要markdown。"""
+不要多余开场白，直接输出总结内容。"""
+    else:
+        prompt = f"""你是激光SLAM与点云处理领域专家，用中文对论文做结构化总结，严格按以下5个小标题输出，每个标题1-2句话，简洁专业：
+1. 核心痛点
+2. 技术方案
+3. 关键创新
+4. 实验表现
+5. 适用方向
+
+论文标题：{title}
+论文摘要：{abstract}
+
+输出要求：不要开场白，直接按5个小标题输出，纯文本分段。"""
     
     headers = {"Authorization": f"Bearer {ZHIPU_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": "glm-4-flash", "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
+    payload = {
+        "model": "glm-4-flash",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.2
+    }
     try:
         res = requests.post("https://open.bigmodel.cn/api/paas/v4/chat/completions",
                             json=payload, headers=headers, timeout=60)
         return res.json()["choices"][0]["message"]["content"].strip()
-    except:
+    except Exception:
         return abstract[:300] + "..."
 
 # ===================== 推送渠道 =====================
@@ -312,7 +372,7 @@ def build_full_content(paper_list, cn_list):
     content = f"📡 SLAM&激光雷达每日资讯日报 {today}\n"
     content += f"📄 顶会论文 {len(paper_list)} 篇 ｜ 📰 中文技术精选 {len(cn_list)} 篇\n\n"
 
-    # 板块一：论文
+    # 板块一：国际顶会论文
     if paper_list:
         content += "═══════ 【一、国际顶会论文精选】 ═══════\n\n"
         for idx, p in enumerate(paper_list, 1):
@@ -327,7 +387,7 @@ def build_full_content(paper_list, cn_list):
             content += f"技术概述：{summary}\n\n"
             time.sleep(0.8)
 
-    # 板块二：中文文章
+    # 板块二：中文技术文章
     if cn_list:
         content += "═══════ 【二、国内技术文章精选】 ═══════\n\n"
         for idx, a in enumerate(cn_list, 1):
@@ -341,12 +401,18 @@ def build_full_content(paper_list, cn_list):
     return content
 
 def send_feishu_msg(content):
+    """飞书推送"""
     if not FEISHU_WEBHOOK:
+        print("飞书未配置，跳过推送")
         return
-    requests.post(FEISHU_WEBHOOK, json={"msg_type": "text", "content": {"text": content}})
-    print("飞书推送成功")
+    try:
+        requests.post(FEISHU_WEBHOOK, json={"msg_type": "text", "content": {"text": content}}, timeout=15)
+        print("飞书推送成功")
+    except Exception as e:
+        print(f"飞书推送失败: {e}")
 
 def dingtalk_sign():
+    """钉钉加签生成"""
     if not DINGTALK_SECRET:
         return {}
     timestamp = str(round(time.time() * 1000))
@@ -357,27 +423,36 @@ def dingtalk_sign():
     return {"timestamp": timestamp, "sign": sign}
 
 def send_dingtalk_msg(content):
+    """钉钉推送"""
     if not DINGTALK_WEBHOOK:
+        print("钉钉未配置，跳过推送")
         return
-    sign_params = dingtalk_sign()
-    url = DINGTALK_WEBHOOK
-    if sign_params:
-        url += f"&timestamp={sign_params['timestamp']}&sign={sign_params['sign']}"
-    resp = requests.post(url, json={"msgtype": "text", "text": {"content": content}}, timeout=15)
-    if resp.json().get("errcode") == 0:
-        print("钉钉推送成功")
-    else:
-        print(f"钉钉推送失败: {resp.json().get('errmsg')}")
+    try:
+        sign_params = dingtalk_sign()
+        url = DINGTALK_WEBHOOK
+        if sign_params:
+            url += f"&timestamp={sign_params['timestamp']}&sign={sign_params['sign']}"
+        resp = requests.post(url, json={"msgtype": "text", "text": {"content": content}}, timeout=15)
+        result = resp.json()
+        if result.get("errcode") == 0:
+            print("钉钉推送成功")
+        else:
+            print(f"钉钉推送失败: {result.get('errmsg')}")
+    except Exception as e:
+        print(f"钉钉推送异常: {e}")
 
 def send_email(content):
+    """邮箱推送（修复From头格式，严格符合RFC规范）"""
     if not EMAIL_SENDER or not EMAIL_SMTP_PASSWORD or not EMAIL_RECEIVER:
+        print("邮箱未配置，跳过推送")
         return
     today = datetime.now().strftime("%Y-%m-%d")
-    msg = MIMEText(content, "plain", "utf-8")
-    msg["From"] = formataddr(("论文日报Agent", EMAIL_SENDER), "utf-8")
-    msg["To"] = formataddr(("收件人", EMAIL_RECEIVER), "utf-8")
-    msg["Subject"] = Header(f"【每日资讯】SLAM&激光雷达日报 {today}", "utf-8")
     try:
+        msg = MIMEText(content, "plain", "utf-8")
+        msg["From"] = formataddr(("论文日报Agent", EMAIL_SENDER), "utf-8")
+        msg["To"] = formataddr(("收件人", EMAIL_RECEIVER), "utf-8")
+        msg["Subject"] = Header(f"【每日资讯】SLAM&激光雷达日报 {today}", "utf-8")
+
         server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
         server.login(EMAIL_SENDER, EMAIL_SMTP_PASSWORD)
         server.sendmail(EMAIL_SENDER, EMAIL_RECEIVER, msg.as_string())
@@ -388,11 +463,11 @@ def send_email(content):
 
 # ===================== 主执行流程 =====================
 if __name__ == "__main__":
-    # ========== 处理论文部分 ==========
+    # ========== 第一部分：处理国际论文 ==========
     pushed_paper_ids = load_json_set(RECORD_FILE)
     all_papers = fetch_arxiv_papers()
     new_papers = [p for p in all_papers if p["id"] not in pushed_paper_ids]
-    print(f"抓取到新论文 {len(new_papers)} 篇")
+    print(f"\n抓取到今日新论文 {len(new_papers)} 篇")
 
     candidate_papers = []
     for p in new_papers:
@@ -407,64 +482,78 @@ if __name__ == "__main__":
         p["is_open"] = is_open
         p["code_status"] = code_status
         p["code_link"] = code_link
+        
         if ONLY_PUSH_OPENSOURCE and not is_open:
             continue
+        
         llm_score = llm_quality_score(p["title"], p["abstract"])
         final_score = int(p["base_score"] * 0.4 + llm_score * 0.6)
         if is_open:
             final_score += OPEN_SOURCE_BONUS
         p["final_score"] = min(final_score, 100)
+        
         if p["final_score"] >= MIN_SCORE:
             scored_papers.append(p)
+        
         time.sleep(1)
 
     scored_papers.sort(key=lambda x: x["final_score"], reverse=True)
     top_papers = scored_papers[:MAX_PAPERS]
+    print(f"筛选出优质论文 {len(top_papers)} 篇")
 
-    # ========== 处理中文文章部分 ==========
-    pushed_cn_ids = load_json_set(CN_RECORD_FILE)
-    all_cn = fetch_cn_rss_articles()
-    new_cn = [a for a in all_cn if a["id"] not in pushed_cn_ids]
-    print(f"抓取到中文新文章 {len(new_cn)} 篇")
+    # ========== 第二部分：处理中文文章（全局异常兜底，不影响论文推送）==========
+    top_cn = []
+    try:
+        pushed_cn_ids = load_json_set(CN_RECORD_FILE)
+        all_cn = fetch_cn_rss_articles()
+        new_cn = [a for a in all_cn if a["id"] not in pushed_cn_ids]
+        print(f"\n抓取到中文新文章 {len(new_cn)} 篇")
 
-    candidate_cn = []
-    for a in new_cn:
-        base_score, pass_rule = rule_score_cn_article(a["title"], a["abstract"])
-        if pass_rule:
-            a["base_score"] = base_score
-            candidate_cn.append(a)
+        candidate_cn = []
+        for a in new_cn:
+            base_score, pass_rule = rule_score_cn_article(a["title"], a["abstract"])
+            if pass_rule:
+                a["base_score"] = base_score
+                candidate_cn.append(a)
 
-    scored_cn = []
-    for a in candidate_cn:
-        try:
-            llm_score = llm_quality_score(a["title"], a["abstract"], is_cn=True)
-            final_score = int(a["base_score"] * 0.5 + llm_score * 0.5)
-            a["final_score"] = min(final_score, 100)
-            if a["final_score"] >= MIN_CN_SCORE:
-                scored_cn.append(a)
-        except Exception as e:
-            print(f"单篇中文文章处理异常，跳过: {e}")
-        time.sleep(0.8)
+        scored_cn = []
+        for a in candidate_cn:
+            try:
+                llm_score = llm_quality_score(a["title"], a["abstract"], is_cn=True)
+                # 中文综合分：规则30% + 大模型70%，泛源场景下大模型判断更准确
+                final_score = int(a["base_score"] * 0.3 + llm_score * 0.7)
+                a["final_score"] = min(final_score, 100)
+                if a["final_score"] >= MIN_CN_SCORE:
+                    scored_cn.append(a)
+            except Exception as e:
+                print(f"单篇中文文章处理异常，跳过: {e}")
+            time.sleep(0.8)
 
-    scored_cn.sort(key=lambda x: x["final_score"], reverse=True)
-    top_cn = scored_cn[:MAX_CN_ARTICLES]
-    print(f"筛选出优质中文文章 {len(top_cn)} 篇")
+        scored_cn.sort(key=lambda x: x["final_score"], reverse=True)
+        top_cn = scored_cn[:MAX_CN_ARTICLES]
+        print(f"筛选出优质中文文章 {len(top_cn)} 篇")
+    except Exception as e:
+        print(f"\n⚠️  中文文章模块整体异常，已跳过，不影响论文推送: {e}")
 
-    # ========== 推送 ==========
+    # ========== 第三部分：多渠道统一推送 ==========
     if top_papers or top_cn:
         full_content = build_full_content(top_papers, top_cn)
+        print("\n===== 开始推送 =====")
         send_feishu_msg(full_content)
         send_dingtalk_msg(full_content)
         send_email(full_content)
 
-        # 更新记录
-        new_paper_ids = set(p["id"] for p in top_papers)
-        pushed_paper_ids.update(new_paper_ids)
-        save_json_set(RECORD_FILE, pushed_paper_ids)
-
-        new_cn_ids = set(a["id"] for a in top_cn)
-        pushed_cn_ids.update(new_cn_ids)
-        save_json_set(CN_RECORD_FILE, pushed_cn_ids)
-        print("记录已更新")
+        # 更新去重记录
+        if top_papers:
+            new_paper_ids = set(p["id"] for p in top_papers)
+            pushed_paper_ids.update(new_paper_ids)
+            save_json_set(RECORD_FILE, pushed_paper_ids)
+        
+        if top_cn:
+            new_cn_ids = set(a["id"] for a in top_cn)
+            pushed_cn_ids = load_json_set(CN_RECORD_FILE)
+            pushed_cn_ids.update(new_cn_ids)
+            save_json_set(CN_RECORD_FILE, pushed_cn_ids)
+        print("\n所有记录已更新，执行完成")
     else:
-        print("今日无符合条件的内容")
+        print("\n今日无符合条件的内容")
