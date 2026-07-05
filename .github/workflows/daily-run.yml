@@ -1,0 +1,38 @@
+name: SLAM论文每日推送Agent
+# 定时：UTC23点=北京时间早上7点每日执行
+on:
+  schedule:
+    - cron: "0 23 * * *"
+  # 支持手动点击仓库Actions手动触发测试
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: 配置Python环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 执行论文Agent
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+        run: python paper_agent.py
+
+      - name: 提交更新后的推送记录文件
+        run: |
+          git config --global user.name "choptickss"
+          git config --global user.email "2389817852@qq.com"
+          git add pushed_papers.json
+          git commit -m "更新已推送论文记录" || echo "无新记录无需提交"
+          git push
