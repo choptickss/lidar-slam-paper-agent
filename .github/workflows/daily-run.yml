@@ -1,9 +1,10 @@
 name: SLAM论文每日推送Agent
-# 定时：UTC23点=北京时间早上7点每日执行
+
 on:
+  # 定时执行：UTC 23:00 = 北京时间次日 07:00
   schedule:
     - cron: "0 23 * * *"
-  # 支持手动点击仓库Actions手动触发测试
+  # 支持手动触发测试
   workflow_dispatch:
 
 jobs:
@@ -27,9 +28,14 @@ jobs:
         env:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
+          DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_SMTP_PASSWORD: ${{ secrets.EMAIL_SMTP_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
         run: python paper_agent.py
 
-      - name: 提交更新后的推送记录文件
+      - name: 更新已推送记录
         run: |
           git config --global user.name "choptickss"
           git config --global user.email "2389817852@qq.com"
