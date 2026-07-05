@@ -192,7 +192,7 @@ def rule_score_cn_article(title, abstract):
         elif kw_lower in text_lower:
             score += weight
     
-    return score, score >= 12  # 门槛同步提高，过滤弱相关文章
+    return score, score >= 8
 # ===================== 规则初筛 =====================
 def rule_based_score(title, abstract):
     text = (title + " " + abstract).lower()
