@@ -10,6 +10,7 @@ import urllib.parse
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
+from email.utils import formataddr
 from datetime import datetime
 
 # ========== 可配置参数区 ==========
@@ -134,14 +135,31 @@ def check_opensource_local(title, abstract):
     return False, None
 
 def check_opensource_pwc(arxiv_id):
-    """调用Papers with Code官方API，权威校验开源状态"""
+    """调用Papers with Code官方API，增加防拦截与异常校验"""
     if not ENABLE_PAPERS_WITH_CODE:
         return False, None
     try:
         clean_id = re.sub(r"v\d+$", "", arxiv_id)
         url = f"https://paperswithcode.com/api/v1/papers/?arxiv_id={clean_id}"
-        resp = requests.get(url, timeout=10)
-        data = resp.json()
+        # 增加标准请求头，降低被Cloudflare拦截的概率
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+        resp = requests.get(url, headers=headers, timeout=10)
+        
+        # 先校验HTTP状态码，非200直接返回失败
+        if resp.status_code != 200:
+            print(f"Papers with Code请求被拦截，状态码:{resp.status_code}")
+            return False, None
+        
+        # 安全解析JSON，失败不中断主流程
+        try:
+            data = resp.json()
+        except ValueError:
+            print("Papers with Code返回非JSON格式，跳过本次查询")
+            return False, None
+            
         if data.get("count", 0) > 0:
             paper = data["results"][0]
             repos = paper.get("repositories", [])
@@ -151,7 +169,7 @@ def check_opensource_pwc(arxiv_id):
                 return True, target.get("url", "")
         return False, None
     except Exception as e:
-        print(f"Papers with Code查询失败:{e}")
+        print(f"Papers with Code查询异常:{e}")
         return False, None
 
 def get_opensource_info(title, abstract, arxiv_id):
@@ -307,7 +325,7 @@ def send_dingtalk_msg(paper_list):
         print(f"钉钉推送失败: {result.get('errmsg')}")
 
 def send_email(paper_list):
-    """邮箱推送"""
+    """邮箱推送（修复From头格式，严格符合RFC5322/RFC2047规范）"""
     if not EMAIL_SENDER or not EMAIL_SMTP_PASSWORD or not EMAIL_RECEIVER or len(paper_list) == 0:
         print("邮箱未配置或无论文，跳过推送")
         return
@@ -329,8 +347,9 @@ def send_email(paper_list):
         time.sleep(1)
 
     msg = MIMEText(content, "plain", "utf-8")
-    msg["From"] = Header(f"论文日报Agent <{EMAIL_SENDER}>", "utf-8")
-    msg["To"] = Header(EMAIL_RECEIVER, "utf-8")
+    # 使用formataddr自动处理中文昵称编码，邮箱地址保持纯文本，完全符合QQ邮箱协议要求
+    msg["From"] = formataddr(("论文日报Agent", EMAIL_SENDER), "utf-8")
+    msg["To"] = formataddr(("收件人", EMAIL_RECEIVER), "utf-8")
     msg["Subject"] = Header(f"【每日论文】SLAM&激光雷达优质论文 {today}", "utf-8")
 
     try:
@@ -381,7 +400,7 @@ if __name__ == "__main__":
         if p["final_score"] >= MIN_SCORE:
             scored_papers.append(p)
         
-        time.sleep(0.8)
+        time.sleep(1.2)  # 拉长请求间隔，降低PwC和大模型接口被限流概率
     
     # 按分数降序排序，取Top N
     scored_papers.sort(key=lambda x: x["final_score"], reverse=True)
