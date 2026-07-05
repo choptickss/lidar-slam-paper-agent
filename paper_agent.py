@@ -57,8 +57,9 @@ CODE_KEYWORDS = [
 CN_RSS_SOURCES = [
     {"name": "机器之心", "url": "https://www.jiqizhixin.com/rss"},
     {"name": "量子位", "url": "https://www.qbitai.com/feed"},
-    {"name": "点云PCL", "url": "https://cloud.tencent.com/developer/column/rss/79230"},
-    {"name": "自动驾驶之心", "url": "https://www.zdjszx.com/feed"},
+    {"name": "新智元", "url": "https://www.aiera.com/feed"},
+    {"name": "36氪-科技", "url": "https://36kr.com/feed/tech"},
+    {"name": "知乎-机器人话题", "url": "https://www.zhihu.com/rss/topic/19551480"},
 ]
 MAX_CN_ARTICLES = 5  # 每日最多推送中文文章数
 
@@ -130,18 +131,37 @@ def fetch_arxiv_papers():
 
 # ===================== 新增：中文RSS文章抓取 =====================
 def fetch_cn_rss_articles():
-    """抓取所有中文RSS源的最新文章"""
+    """抓取所有中文RSS源，增加反爬头、状态校验、错误详情打印"""
     all_articles = []
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Accept": "application/rss+xml, application/xml, text/xml;q=0.9"
+    }
+    
     for source in CN_RSS_SOURCES:
+        print(f"正在抓取: {source['name']} - {source['url']}")
         try:
-            resp = requests.get(source["url"], timeout=15)
+            resp = requests.get(source["url"], headers=headers, timeout=20)
+            # 先校验HTTP状态码
+            if resp.status_code != 200:
+                print(f"  ❌ {source['name']} 请求失败，状态码: {resp.status_code}")
+                continue
+            
             feed = feedparser.parse(resp.content)
-            for entry in feed.entries[:10]:  # 每个源取最新10篇
-                article_id = entry.link
-                title = entry.title
-                summary = entry.get("summary", "").strip()
-                # 去除HTML标签
+            if feed.bozo != 0:
+                print(f"  ⚠️  {source['name']} 解析警告: {feed.bozo_exception}")
+            
+            entry_count = len(feed.entries)
+            print(f"  ✅ 成功抓取 {entry_count} 篇文章")
+            
+            for entry in feed.entries[:15]:  # 每个源取最新15篇
+                article_id = entry.link.strip()
+                title = entry.title.strip()
+                # 提取摘要，去除HTML标签
+                summary = entry.get("summary", entry.get("description", "")).strip()
                 summary = re.sub(r"<[^>]+>", "", summary)
+                summary = re.sub(r"\s+", " ", summary)
+                
                 all_articles.append({
                     "id": article_id,
                     "title": title,
@@ -151,27 +171,10 @@ def fetch_cn_rss_articles():
                     "date": entry.get("published", ""),
                     "type": "cn_article"
                 })
-            time.sleep(0.5)
+            time.sleep(1)
         except Exception as e:
-            print(f"抓取{source['name']}失败: {e}")
+            print(f"  ❌ {source['name']} 抓取异常: {str(e)}")
     return all_articles
-
-def rule_score_cn_article(title, abstract):
-    """中文文章规则打分，标题命中权重翻倍"""
-    title_lower = title.lower()
-    text_lower = (title + " " + abstract).lower()
-    score = 0
-    
-    for kw, weight in DOMAIN_KEYWORDS.items():
-        kw_lower = kw.lower()
-        # 标题命中：权重翻倍
-        if kw_lower in title_lower:
-            score += weight * 2
-        # 仅摘要命中：正常权重
-        elif kw_lower in text_lower:
-            score += weight
-    
-    return score, score >= 12  # 门槛同步提高，过滤弱相关文章
 
 # ===================== 规则初筛 =====================
 def rule_based_score(title, abstract):
