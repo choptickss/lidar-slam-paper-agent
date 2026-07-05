@@ -17,12 +17,27 @@ from datetime import datetime
 # ========== 可配置参数区 ==========
 # 核心领域关键词（权重越高，命中后相关性加分越多）
 DOMAIN_KEYWORDS = {
-    "lidar": 3, "point cloud": 3, "slam": 3, "lio": 3, "loam": 3,
-    "point cloud registration": 4, "loop closure": 4, "imu fusion": 3,
-    "livox": 3, "gaussian splatting slam": 4, "nerf slam": 4,
-    "semantic segmentation": 2, "autonomous driving": 2, "localization": 2,
-    "odometry": 3, "feature extraction": 2, "voxel": 2,
-    "激光雷达": 3, "点云": 3, "建图": 2, "自动驾驶": 2, "机器人": 2
+    # ========== 核心高权重（命中即强相关）==========
+    # 英文核心
+    "lidar": 4, "point cloud": 4, "slam": 4, "lio": 4, "loam": 4,
+    "point cloud registration": 5, "loop closure": 5, "imu fusion": 4,
+    "odometry": 4,
+    # 中文核心
+    "激光雷达": 4, "点云": 4, "建图": 3, "激光SLAM": 5, "点云配准": 5,
+    "回环检测": 5, "惯导融合": 4, "里程计": 4, "点云分割": 4,
+
+    # ========== 次高权重（细分方向）==========
+    # 英文细分
+    "livox": 3, "gaussian splatting slam": 5, "nerf slam": 5,
+    "semantic segmentation": 3, "localization": 3, "feature extraction": 3,
+    "voxel": 3, "autonomous driving": 2,
+    # 中文细分
+    "固态激光雷达": 4, "览沃": 3, "体素": 3, "特征提取": 3,
+    "自动驾驶感知": 3, "机器人定位": 3, "3D点云": 4,
+    "多传感器融合": 3, "紧耦合": 4, "松耦合": 3,
+
+    # ========== 低权重（泛领域，仅作补充）==========
+    "autonomous driving": 2, "机器人": 2, "自动驾驶": 2, "3D视觉": 2
 }
 # 优质机构/顶会关键词（命中额外加分）
 BONUS_KEYWORDS = [
