@@ -55,26 +55,29 @@ CODE_KEYWORDS = [
     "our code", "code repository", "code will be released", "开源"
 ]
 
-# ========== 中文RSS源配置（垂直号+综合源，海外节点可稳定访问）==========
+# ========== 中文RSS源配置（海外节点稳定可访问版）==========
 CN_RSS_SOURCES = [
-    # 垂直技术公众号（RSSHub公共实例转码，匹配度最高）
-    {"name": "自动驾驶之心", "url": "https://rsshub.app/wechat/mp/auto-drive-heart"},
-    {"name": "点云PCL", "url": "https://rsshub.app/wechat/mp/PointCloud"},
-    {"name": "泡泡机器人SLAM", "url": "https://rsshub.app/wechat/mp/paopaorobot"},
-    # 综合科技媒体（补充行业广度）
+    # 综合科技媒体（行业资讯+技术解读）
     {"name": "量子位", "url": "https://www.qbitai.com/feed"},
     {"name": "新智元", "url": "https://www.aiera.com/feed"},
     {"name": "开源中国-AI", "url": "https://www.oschina.net/news/rss?catalog=2"},
+    # 技术社区（偏技术实践，匹配度更高）
+    {"name": "掘金-人工智能", "url": "https://juejin.cn/rss/category/ai"},
+    {"name": "思否-人工智能", "url": "https://segmentfault.com/feeds/channel/ai"},
 ]
 MAX_CN_ARTICLES = 5  # 每日最多推送中文文章数
 
 # ========== 筛选评分配置 ==========
 MIN_SCORE = 60                  # 论文及格分数线
-MIN_CN_SCORE = 45               # 中文文章及格分数线（适配泛源场景下调）
+MIN_CN_SCORE = 45               # 中文文章及格分数线
 MAX_PAPERS = 8                  # 每日最多推送论文数量
 OPEN_SOURCE_BONUS = 5           # 开源论文额外加分
 ONLY_PUSH_OPENSOURCE = False    # 只推送开源论文开关
 ENABLE_PAPERS_WITH_CODE = True  # 启用Papers with Code权威开源校验
+
+# 打分归一化基准值（规则分满分参考）
+PAPER_RULE_MAX = 80     # 论文规则分理论满分
+CN_RULE_MAX = 60        # 中文文章规则分理论满分
 
 # arXiv分区
 ARXIV_CATEGORIES = ["cs.RO", "cs.CV", "cs.AI"]
@@ -150,7 +153,6 @@ def fetch_cn_rss_articles():
         print(f"正在抓取: {source['name']} - {source['url']}")
         try:
             resp = requests.get(source["url"], headers=headers, timeout=20)
-            # 先校验HTTP状态码
             if resp.status_code != 200:
                 print(f"  ❌ {source['name']} 请求失败，状态码: {resp.status_code}")
                 continue
@@ -162,10 +164,9 @@ def fetch_cn_rss_articles():
             entry_count = len(feed.entries)
             print(f"  ✅ 成功抓取 {entry_count} 篇文章")
             
-            for entry in feed.entries[:15]:  # 每个源取最新15篇
+            for entry in feed.entries[:15]:
                 article_id = entry.link.strip()
                 title = entry.title.strip()
-                # 提取摘要，去除HTML标签和多余空白
                 summary = entry.get("summary", entry.get("description", "")).strip()
                 summary = re.sub(r"<[^>]+>", "", summary)
                 summary = re.sub(r"\s+", " ", summary)
@@ -205,17 +206,15 @@ def rule_based_score(title, abstract):
     return base_score, base_score >= 10
 
 def rule_score_cn_article(title, abstract):
-    """中文文章规则打分，标题命中权重翻倍，带调试日志，宽进严出"""
+    """中文文章规则打分，标题命中权重翻倍，门槛下调至3分，宽进严出"""
     title_lower = title.lower()
     text_lower = (title + " " + abstract).lower()
     score = 0
     
     for kw, weight in DOMAIN_KEYWORDS.items():
         kw_lower = kw.lower()
-        # 标题命中权重翻倍
         if kw_lower in title_lower:
             score += weight * 2
-        # 仅摘要命中正常计分
         elif kw_lower in text_lower:
             score += weight
     
@@ -223,8 +222,8 @@ def rule_score_cn_article(title, abstract):
     if score >= 3:
         print(f"  [规则得分{score}] {title[:45]}...")
     
-    # 初筛门槛降至5分，宽进严出，后续大模型二次筛选
-    return score, score >= 5
+    # 初筛门槛降至3分，宽进严出，后续大模型二次筛选
+    return score, score >= 3
 
 # ===================== 开源代码识别 =====================
 def check_opensource_local(title, abstract):
@@ -251,11 +250,9 @@ def check_opensource_pwc(arxiv_id):
         }
         resp = requests.get(url, headers=headers, timeout=10)
         
-        # 前置校验状态码，非200直接返回
         if resp.status_code != 200:
             return False, None
         
-        # 安全解析JSON，失败不中断主流程
         try:
             data = resp.json()
         except ValueError:
@@ -372,7 +369,6 @@ def build_full_content(paper_list, cn_list):
     content = f"📡 SLAM&激光雷达每日资讯日报 {today}\n"
     content += f"📄 顶会论文 {len(paper_list)} 篇 ｜ 📰 中文技术精选 {len(cn_list)} 篇\n\n"
 
-    # 板块一：国际顶会论文
     if paper_list:
         content += "═══════ 【一、国际顶会论文精选】 ═══════\n\n"
         for idx, p in enumerate(paper_list, 1):
@@ -387,7 +383,6 @@ def build_full_content(paper_list, cn_list):
             content += f"技术概述：{summary}\n\n"
             time.sleep(0.8)
 
-    # 板块二：中文技术文章
     if cn_list:
         content += "═══════ 【二、国内技术文章精选】 ═══════\n\n"
         for idx, a in enumerate(cn_list, 1):
@@ -487,7 +482,10 @@ if __name__ == "__main__":
             continue
         
         llm_score = llm_quality_score(p["title"], p["abstract"])
-        final_score = int(p["base_score"] * 0.4 + llm_score * 0.6)
+        # 修复：规则分归一化到100分制，再加权计算综合分
+        normalized_rule = min(p["base_score"] / PAPER_RULE_MAX * 100, 100)
+        final_score = int(normalized_rule * 0.4 + llm_score * 0.6)
+        
         if is_open:
             final_score += OPEN_SOURCE_BONUS
         p["final_score"] = min(final_score, 100)
@@ -501,7 +499,7 @@ if __name__ == "__main__":
     top_papers = scored_papers[:MAX_PAPERS]
     print(f"筛选出优质论文 {len(top_papers)} 篇")
 
-    # ========== 第二部分：处理中文文章（全局异常兜底，不影响论文推送）==========
+    # ========== 第二部分：处理中文文章（全局异常兜底）==========
     top_cn = []
     try:
         pushed_cn_ids = load_json_set(CN_RECORD_FILE)
@@ -520,8 +518,9 @@ if __name__ == "__main__":
         for a in candidate_cn:
             try:
                 llm_score = llm_quality_score(a["title"], a["abstract"], is_cn=True)
-                # 中文综合分：规则30% + 大模型70%，泛源场景下大模型判断更准确
-                final_score = int(a["base_score"] * 0.3 + llm_score * 0.7)
+                # 修复：规则分归一化，泛源场景大模型占80%权重
+                normalized_rule = min(a["base_score"] / CN_RULE_MAX * 100, 100)
+                final_score = int(normalized_rule * 0.2 + llm_score * 0.8)
                 a["final_score"] = min(final_score, 100)
                 if a["final_score"] >= MIN_CN_SCORE:
                     scored_cn.append(a)
@@ -543,7 +542,6 @@ if __name__ == "__main__":
         send_dingtalk_msg(full_content)
         send_email(full_content)
 
-        # 更新去重记录
         if top_papers:
             new_paper_ids = set(p["id"] for p in top_papers)
             pushed_paper_ids.update(new_paper_ids)
